@@ -6,6 +6,17 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include "cache.h"
+
+int dcache_stall = 0;
+int icache_stall = 0;
+
+Cache icache;
+Cache dcache;
+
+
+
+
 //#define DEBUG
 
 /* debug */
@@ -26,6 +37,9 @@ void pipe_init()
 {
     memset(&pipe, 0, sizeof(Pipe_State));
     pipe.PC = 0x00400000;
+
+    cache_init(&icache, 64,4,32);
+    cache_init(&dcache, 256, 8, 32);
 }
 
 void pipe_cycle()
@@ -134,6 +148,22 @@ void pipe_stage_mem()
 
     /* grab the op out of our input slot */
     Pipe_Op *op = pipe.mem_op;
+
+    /* keep pipeline stalled in case the miss penalty has not ended*/
+    if (dcache_stall > 0) {
+        dcache_stall--;
+        return;
+    }
+
+    /* if cache miss add 50 cycle stall, if hit keep going, this assumes we 
+    are only modeling the hit and miss resulting of cache and not the actual storage*/
+    if (op->is_mem) {
+        if (!cache_access(&dcache, op->mem_addr, op->mem_write)) {
+            dcache_stall = 50;
+            return;
+        }
+    }
+
 
     uint32_t val = 0;
     if (op->is_mem)
@@ -658,6 +688,21 @@ void pipe_stage_decode()
 
 void pipe_stage_fetch()
 {
+    //
+    if (icache_stall > 0) {
+        icache_stall--;
+        return;
+    }
+
+    uint32_t pc = pipe.PC;
+
+    if (!cache_access(&icache, pc, 0)) {
+        icache_stall = 50;
+        return;
+    }
+
+    //
+
     /* if pipeline is stalled (our output slot is not empty), return */
     if (pipe.decode_op != NULL)
         return;

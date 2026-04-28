@@ -2,8 +2,8 @@
 
 import sys, os, subprocess, re, glob, argparse
 
-ref = "./basesim"
-sim = "./sim"
+ref = "basesim.exe"
+sim = "sim.exe"
 
 bold="\033[1m"
 green="\033[0;32m"
