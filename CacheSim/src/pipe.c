@@ -17,7 +17,7 @@ Cache dcache;
 
 
 
-//#define DEBUG
+#define DEBUG
 
 /* debug */
 void print_op(Pipe_Op *op)
@@ -35,6 +35,7 @@ Pipe_State pipe;
 
 void pipe_init()
 {
+
     memset(&pipe, 0, sizeof(Pipe_State));
     pipe.PC = 0x00400000;
 
@@ -142,6 +143,7 @@ void pipe_stage_wb()
 
 void pipe_stage_mem()
 {
+
     /* if there is no instruction in this pipeline stage, we are done */
     if (!pipe.mem_op)
         return;
@@ -149,6 +151,7 @@ void pipe_stage_mem()
     /* grab the op out of our input slot */
     Pipe_Op *op = pipe.mem_op;
 
+    
     /* keep pipeline stalled in case the miss penalty has not ended*/
     if (dcache_stall > 0) {
         dcache_stall--;
@@ -163,6 +166,7 @@ void pipe_stage_mem()
             return;
         }
     }
+    
 
 
     uint32_t val = 0;
@@ -688,25 +692,33 @@ void pipe_stage_decode()
 
 void pipe_stage_fetch()
 {
-    //
+
+    /* if pipeline is stalled (our output slot is not empty), return */
+    if (pipe.decode_op != NULL){
+        return;
+    }
+
+
+    uint32_t pc = pipe.PC;
+  
+
+    
     if (icache_stall > 0) {
         icache_stall--;
         return;
     }
 
-    uint32_t pc = pipe.PC;
+    
+
 
     if (!cache_access(&icache, pc, 0)) {
         icache_stall = 50;
         return;
     }
 
-    //
-
-    /* if pipeline is stalled (our output slot is not empty), return */
-    if (pipe.decode_op != NULL)
-        return;
-
+    
+    
+    
     /* Allocate an op and send it down the pipeline. */
     Pipe_Op *op = malloc(sizeof(Pipe_Op));
     memset(op, 0, sizeof(Pipe_Op));
