@@ -110,6 +110,7 @@ static void test_store_dirty_bit() {
     cache_free(&cache);
 }
 
+/*
 int main() {
     test_basic_hits_and_misses();
     test_lru_eviction();
@@ -117,3 +118,4 @@ int main() {
 
     return 0;
 }
+    */

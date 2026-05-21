@@ -17,7 +17,7 @@ Cache dcache;
 
 
 
-#define DEBUG
+//#define DEBUG
 
 /* debug */
 void print_op(Pipe_Op *op)
@@ -36,8 +36,11 @@ Pipe_State pipe;
 void pipe_init()
 {
 
+
     memset(&pipe, 0, sizeof(Pipe_State));
     pipe.PC = 0x00400000;
+    
+    printf("PC init is = %08x \n",pipe.PC );
 
     cache_init(&icache, 64,4,32);
     cache_init(&dcache, 256, 8, 32);
@@ -131,6 +134,7 @@ void pipe_stage_wb()
     if (op->opcode == OP_SPECIAL && op->subop == SUBOP_SYSCALL) {
         if (op->reg_src1_value == 0xA) {
             pipe.PC = op->pc; /* fetch will do pc += 4, then we stop with correct PC */
+
             RUN_BIT = 0;
         }
     }
@@ -693,9 +697,11 @@ void pipe_stage_fetch()
 {
 
   
+    printf("PC start fetch is =  %08x\n",pipe.PC);
 
     /* if pipeline is stalled (our output slot is not empty), return */
     if (pipe.decode_op != NULL){
+        printf("null decode\n");
         return;
     }
 
@@ -705,7 +711,8 @@ void pipe_stage_fetch()
      
 
     
-    if (icache_stall > 0) {
+    if (icache_stall > 0 && RUN_BIT) {
+        printf("penalty stall %d\n",icache_stall);
         icache_stall--;
         return;
     }
@@ -713,8 +720,9 @@ void pipe_stage_fetch()
     
 
 
-    if (!cache_access(&icache, pc, 0)) {
+    if (!cache_access(&icache, pc, 0) && RUN_BIT) {
         icache_stall = 50;
+        printf("cache miss\n");
         return;
     }
 
@@ -732,6 +740,8 @@ void pipe_stage_fetch()
 
     /* update PC */
     pipe.PC += 4;
+
+    printf("PC end fetch is =  %08x\n",pipe.PC);
 
     stat_inst_fetch++;
 }
