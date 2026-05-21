@@ -158,8 +158,7 @@ void pipe_stage_mem()
         return;
     }
 
-    /* if cache miss add 50 cycle stall, if hit keep going, this assumes we 
-    are only modeling the hit and miss resulting of cache and not the actual storage*/
+    /* if cache miss add 50 cycle stalls, if hit keep going*/
     if (op->is_mem) {
         if (!cache_access(&dcache, op->mem_addr, op->mem_write)) {
             dcache_stall = 50;
@@ -693,6 +692,8 @@ void pipe_stage_decode()
 void pipe_stage_fetch()
 {
 
+  
+
     /* if pipeline is stalled (our output slot is not empty), return */
     if (pipe.decode_op != NULL){
         return;
@@ -701,6 +702,7 @@ void pipe_stage_fetch()
 
     uint32_t pc = pipe.PC;
   
+     
 
     
     if (icache_stall > 0) {
