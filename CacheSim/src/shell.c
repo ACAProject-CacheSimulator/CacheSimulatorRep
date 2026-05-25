@@ -359,15 +359,25 @@ void load_program(char *program_filename) {
 /*             and set up initial state of the machine.     */
 /*                                                          */
 /************************************************************/
-void initialize(char *program_filename, int num_prog_files) { 
+void initialize(char *program_filename, int num_prog_files,int ic_size,
+        int ic_assoc,
+        int ic_block,
+        int dc_size,
+        int dc_assoc,
+        int dc_block) { 
+
   int i;
 
   init_memory();
-  pipe_init();
-  for ( i = 0; i < num_prog_files; i++ ) {
+  pipe_init(ic_size,
+        ic_assoc,
+        ic_block,
+        dc_size,
+        dc_assoc,
+        dc_block);
+  for (i = 0; i < num_prog_files; i++) {
     load_program(program_filename);
-    while(*program_filename++ != '\0');
-  }
+}
     
   RUN_BIT = TRUE;
 }
@@ -377,20 +387,52 @@ void initialize(char *program_filename, int num_prog_files) {
 /* Procedure : main                                            */
 /*                                                             */
 /***************************************************************/
-int main(int argc, char *argv[]) {                              
 
-  /* Error Checking */
-  if (argc < 2) {
-    printf("Error: usage: %s <program_file_1> <program_file_2> ...\n",
-           argv[0]);
-    exit(1);
-  }
 
-  printf("MIPS Simulator\n\n");
 
-  initialize(argv[1], argc - 1);
 
-  while (1)
-    get_command();
-    
+int main(int argc, char *argv[]) {
+
+    /* Error Checking */
+    if (argc < 2) {
+        printf("Usage:\n");
+        printf("%s <program_file> [ic_size ic_assoc ic_block dc_size dc_assoc dc_block]\n", argv[0]);
+        exit(1);
+    }
+
+    /* Default values */
+    int ic_size  = DEFAULT_ICACHE_SIZE;
+    int ic_assoc = DEFAULT_ICACHE_ASSOC;
+    int ic_block = DEFAULT_ICACHE_BLOCK;
+
+    int dc_size  = DEFAULT_DCACHE_SIZE;
+    int dc_assoc = DEFAULT_DCACHE_ASSOC;
+    int dc_block = DEFAULT_DCACHE_BLOCK;
+
+    /* Override defaults if user provided arguments */
+    if (argc >= 8) {
+        ic_size  = atoi(argv[2]);
+        ic_assoc = atoi(argv[3]);
+        ic_block = atoi(argv[4]);
+
+        dc_size  = atoi(argv[5]);
+        dc_assoc = atoi(argv[6]);
+        dc_block = atoi(argv[7]);
+    }
+
+    printf("MIPS Simulator\n\n");
+
+    initialize(
+        argv[1],
+        argc - 1,
+        ic_size,
+        ic_assoc,
+        ic_block,
+        dc_size,
+        dc_assoc,
+        dc_block
+    );
+
+    while (1)
+        get_command();
 }

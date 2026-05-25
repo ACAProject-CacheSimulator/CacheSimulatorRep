@@ -16,6 +16,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("inputs", nargs="*", default=all_inputs)
+    parser.add_argument("--cache", nargs=6, default=["64","4","32","256","8","32"])
     parser = parser.parse_args()
 
     for i in parser.inputs:
@@ -24,7 +25,7 @@ def main():
             continue
 
         print(bold + "Testing: " + normal + i)
-        ref_out, sim_out = run(i)
+        ref_out, sim_out = run(i,parser.cache)
 
         print("  " + "Stats".ljust(14) + "BaselineSim".center(14) + "YourSim".center(14))
 
@@ -33,7 +34,11 @@ def main():
         
         nocheck = 0
         error = 0
+
+        
+
         for r, s in zip(ref_out, sim_out):
+
 
             r0 = r.split()[0]
             r1 = r.split()[1]
@@ -54,11 +59,11 @@ def main():
         print()
 
 
-def run(i):
+def run(i, cache_args):
     global ref, sim
 
     refproc = subprocess.Popen([ref, i], executable=ref, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    simproc = subprocess.Popen([sim, i], executable=sim, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    simproc = subprocess.Popen([sim, i] + cache_args, executable=sim, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     cmds = b""
     cmdfile = os.path.splitext(i)[0] + ".cmd"

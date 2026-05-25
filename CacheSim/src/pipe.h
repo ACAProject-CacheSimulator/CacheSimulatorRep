@@ -5,7 +5,17 @@
 #ifndef _PIPE_H_
 #define _PIPE_H_
 
+
+
 #include "shell.h"
+
+#define DEFAULT_ICACHE_SIZE 64
+#define DEFAULT_ICACHE_ASSOC 4
+#define DEFAULT_ICACHE_BLOCK 32
+
+#define DEFAULT_DCACHE_SIZE 256
+#define DEFAULT_DCACHE_ASSOC 8
+#define DEFAULT_DCACHE_BLOCK 32
 
 /* Pipeline ops (instances of this structure) are high-level representations of
  * the instructions that actually flow through the pipeline. This struct does
@@ -92,7 +102,7 @@ typedef struct Pipe_State {
 extern Pipe_State pipe;
 
 /* called during simulator startup */
-void pipe_init();
+void pipe_init(int inum_sets , int iassociativity, int iblock_size, int dnum_sets , int dassociativity, int dblock_size);
 
 /* this function calls the others */
 void pipe_cycle();

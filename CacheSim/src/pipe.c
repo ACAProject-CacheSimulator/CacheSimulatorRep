@@ -33,7 +33,8 @@ void print_op(Pipe_Op *op)
 /* global pipeline state */
 Pipe_State pipe;
 
-void pipe_init()
+void pipe_init(int inum_sets, int iassociativity,
+     int iblock_size, int dnum_sets, int dassociativity, int dblock_size)
 {
 
 
@@ -42,8 +43,8 @@ void pipe_init()
     
     printf("PC init is = %08x \n",pipe.PC );
 
-    cache_init(&icache, 64,4,32);
-    cache_init(&dcache, 256, 8, 32);
+    cache_init(&icache, inum_sets , iassociativity, iblock_size);
+    cache_init(&dcache, dnum_sets , dassociativity, dblock_size);
 }
 
 void pipe_cycle()
