@@ -4,83 +4,73 @@
 #include <stdint.h>
 
 /*
- * Cache_Block represents one cache line/block.
+ * Replacement policies for Phase 2 experiments.
+ */
+typedef enum {
+    CACHE_REPL_LRU,      // Evict least recently used block
+    CACHE_REPL_MRU,      // Evict most recently used block
+    CACHE_REPL_FIFO,     // Evict first inserted block
+    CACHE_REPL_RANDOM    // Evict random block
+} CacheReplacementPolicy;
+
+/*
+ * Insertion policies for Phase 2 experiments.
+ */
+typedef enum {
+    CACHE_INSERT_MRU,    // Insert new block as most recently used
+    CACHE_INSERT_LRU     // Insert new block as least recently used
+} CacheInsertionPolicy;
+
+/*
+ * Global variables used to change policies for experiments.
  *
- * The cache does not store real data bytes.
- * It only stores metadata needed to decide hit/miss.
+ * Default behavior:
+ * CACHE_REPL_LRU + CACHE_INSERT_MRU
+ */
+extern CacheReplacementPolicy CACHE_REPLACEMENT_POLICY;
+extern CacheInsertionPolicy CACHE_INSERTION_POLICY;
+
+/*
+ * Cache_Block represents one cache line/block.
  */
 typedef struct Cache_Block {
-    uint32_t tag;                    // identifies which memory block is stored
-    int valid;                       // 0 = empty/invalid, 1 = contains valid block
-    int dirty;                       // 1 = block was written by a store
-    unsigned long long last_used;    // timestamp for LRU replacement
+    uint32_t tag;
+    int valid;
+    int dirty;
+
+    unsigned long long last_used;    // used for LRU/MRU
+    unsigned long long inserted_at;  // used for FIFO
 } Cache_Block;
 
-/*
- * Cache represents a generic set-associative cache.
- *
- * It can represent both:
- * - instruction cache: 64 sets, 4-way, 32-byte blocks
- * - data cache: 256 sets, 8-way, 32-byte blocks
- */
 typedef struct Cache {
-    Cache_Block **sets;              // 2D array: sets[set_index][way]
+    Cache_Block **sets;
 
-    int num_sets;                    // number of sets
-    int associativity;               // number of ways per set
-    int block_size;                  // block size in bytes
+    int num_sets;
+    int associativity;
+    int block_size;
 
-    int offset_bits;                 // log2(block_size)
-    int index_bits;                  // log2(num_sets)
+    int offset_bits;
+    int index_bits;
 
-    unsigned long long timer;        // global timestamp for this cache
+    unsigned long long timer;
 
-    unsigned long long accesses;     // total cache accesses
-    unsigned long long hits;         // total hits
-    unsigned long long misses;       // total misses
-    unsigned long long dirty_evictions; // number of dirty blocks evicted
+    unsigned long long accesses;
+    unsigned long long hits;
+    unsigned long long misses;
+    unsigned long long dirty_evictions;
 } Cache;
 
-/*
- * Initializes a cache.
- *
- * Example:
- * cache_init(&icache, 64, 4, 32);
- * cache_init(&dcache, 256, 8, 32);
- */
 void cache_init(Cache *cache, int num_sets, int associativity, int block_size);
 
-/*
- * Accesses the cache.
- *
- * Parameters:
- * cache    = pointer to cache
- * address  = memory address being accessed
- * is_store = 0 for instruction fetch/load, 1 for store
- *
- * Return:
- * 1 = hit
- * 0 = miss
- *
- * On miss, this function automatically inserts the new block.
- */
 int cache_access(Cache *cache, uint32_t address, int is_store);
 
-/*
- * Frees memory allocated by cache_init.
- */
 void cache_free(Cache *cache);
 
-/*
- * Prints cache statistics.
- * Useful for debugging and later report.
- */
 void cache_print_stats(Cache *cache, const char *name);
 
-/*
- * Debug helper.
- * Prints one set of the cache.
- */
 void cache_print_set(Cache *cache, int set_index);
+
+void cache_set_policies(CacheReplacementPolicy repl_policy,
+                        CacheInsertionPolicy insert_policy);
 
 #endif

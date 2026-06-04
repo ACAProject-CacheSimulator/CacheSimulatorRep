@@ -4,12 +4,27 @@
 #include "cache.h"
 
 /*
- * Returns log2(x), assuming x is a power of two.
+ * Global cache policies for Phase 2.
  *
- * Example:
- * log2_int(32)  = 5
- * log2_int(64)  = 6
- * log2_int(256) = 8
+ * Default behavior is the SAME as before:
+ * - Replacement policy: LRU
+ * - Insertion policy: MRU
+ */
+CacheReplacementPolicy CACHE_REPLACEMENT_POLICY = CACHE_REPL_LRU;
+CacheInsertionPolicy CACHE_INSERTION_POLICY = CACHE_INSERT_MRU;
+
+/*
+ * Optional function to change policies from another file.
+ * You can also simply change the global variables above.
+ */
+void cache_set_policies(CacheReplacementPolicy repl_policy,
+                        CacheInsertionPolicy insert_policy) {
+    CACHE_REPLACEMENT_POLICY = repl_policy;
+    CACHE_INSERTION_POLICY = insert_policy;
+}
+
+/*
+ * Returns log2(x), assuming x is a power of two.
  */
 static int log2_int(int x) {
     int result = 0;
@@ -24,10 +39,6 @@ static int log2_int(int x) {
 
 /*
  * Checks whether x is a power of two.
- *
- * Caches usually require block size and number of sets
- * to be powers of two so that address bits can be split
- * cleanly into tag/index/offset.
  */
 static int is_power_of_two(int x) {
     if (x <= 0) {
@@ -38,26 +49,80 @@ static int is_power_of_two(int x) {
 }
 
 /*
+ * Chooses which block to evict when the selected set is full.
+ */
+static int choose_victim(Cache *cache, Cache_Block *set) {
+    int i;
+    int victim = 0;
+
+    if (CACHE_REPLACEMENT_POLICY == CACHE_REPL_RANDOM) {
+        return rand() % cache->associativity;
+    }
+
+    if (CACHE_REPLACEMENT_POLICY == CACHE_REPL_LRU) {
+        unsigned long long oldest_time = set[0].last_used;
+
+        for (i = 1; i < cache->associativity; i++) {
+            if (set[i].last_used < oldest_time) {
+                oldest_time = set[i].last_used;
+                victim = i;
+            }
+        }
+
+        return victim;
+    }
+
+    if (CACHE_REPLACEMENT_POLICY == CACHE_REPL_MRU) {
+        unsigned long long newest_time = set[0].last_used;
+
+        for (i = 1; i < cache->associativity; i++) {
+            if (set[i].last_used > newest_time) {
+                newest_time = set[i].last_used;
+                victim = i;
+            }
+        }
+
+        return victim;
+    }
+
+    if (CACHE_REPLACEMENT_POLICY == CACHE_REPL_FIFO) {
+        unsigned long long oldest_insert = set[0].inserted_at;
+
+        for (i = 1; i < cache->associativity; i++) {
+            if (set[i].inserted_at < oldest_insert) {
+                oldest_insert = set[i].inserted_at;
+                victim = i;
+            }
+        }
+
+        return victim;
+    }
+
+    return victim;
+}
+
+/*
+ * Applies the insertion policy to the newly inserted block.
+ */
+static void apply_insertion_policy(Cache *cache, Cache_Block *block) {
+    if (CACHE_INSERTION_POLICY == CACHE_INSERT_MRU) {
+        /*
+         * Original behavior:
+         * inserted block becomes most recently used.
+         */
+        block->last_used = cache->timer;
+    }
+    else if (CACHE_INSERTION_POLICY == CACHE_INSERT_LRU) {
+        /*
+         * Alternative insertion policy:
+         * inserted block becomes least recently used.
+         */
+        block->last_used = 0;
+    }
+}
+
+/*
  * Initializes every field of a cache.
- *
- * This function creates a 2D array:
- *
- * cache->sets[set_index][way]
- *
- * Example:
- * For a 64-set, 4-way cache:
- *
- * cache->sets[0][0]
- * cache->sets[0][1]
- * cache->sets[0][2]
- * cache->sets[0][3]
- *
- * ...
- *
- * cache->sets[63][0]
- * cache->sets[63][1]
- * cache->sets[63][2]
- * cache->sets[63][3]
  */
 void cache_init(Cache *cache, int num_sets, int associativity, int block_size) {
     int i;
@@ -117,34 +182,13 @@ void cache_init(Cache *cache, int num_sets, int associativity, int block_size) {
             cache->sets[i][j].valid = 0;
             cache->sets[i][j].dirty = 0;
             cache->sets[i][j].last_used = 0;
+            cache->sets[i][j].inserted_at = 0;
         }
     }
 }
 
 /*
  * Accesses the cache and returns hit/miss.
- *
- * Address format:
- *
- * tag | index | offset
- *
- * offset bits = log2(block_size)
- * index bits  = log2(num_sets)
- * tag bits    = remaining upper bits
- *
- * Example instruction cache:
- * block size = 32 bytes -> offset bits = 5
- * num sets   = 64       -> index bits  = 6
- *
- * index = address[10:5]
- * tag   = address[31:11]
- *
- * Example data cache:
- * block size = 32 bytes -> offset bits = 5
- * num sets   = 256      -> index bits  = 8
- *
- * index = address[12:5]
- * tag   = address[31:13]
  */
 int cache_access(Cache *cache, uint32_t address, int is_store) {
     uint32_t index;
@@ -153,7 +197,6 @@ int cache_access(Cache *cache, uint32_t address, int is_store) {
 
     int i;
     int victim;
-    unsigned long long oldest_time;
 
     Cache_Block *set;
 
@@ -162,67 +205,32 @@ int cache_access(Cache *cache, uint32_t address, int is_store) {
         exit(1);
     }
 
-    /*
-     * Every call to cache_access counts as one cache access.
-     */
     cache->accesses++;
-
-    /*
-     * Increase timer before assigning it.
-     * This means newer accesses always have larger timestamps.
-     */
     cache->timer++;
 
-    /*
-     * Build index mask.
-     *
-     * If index_bits = 6:
-     * (1 << 6) - 1 = 0b111111 = 0x3F
-     *
-     * If index_bits = 8:
-     * (1 << 8) - 1 = 0b11111111 = 0xFF
-     */
     index_mask = (1u << cache->index_bits) - 1u;
 
-    /*
-     * Extract index.
-     *
-     * First shift away the offset bits.
-     * Then mask only the index bits.
-     */
     index = (address >> cache->offset_bits) & index_mask;
 
-    /*
-     * Extract tag.
-     *
-     * Shift away both offset and index bits.
-     */
     tag = address >> (cache->offset_bits + cache->index_bits);
 
-    /*
-     * Select the set we need to search.
-     */
     set = cache->sets[index];
 
     /*
      * Step 1: Search all ways in the selected set.
-     *
-     * If we find a valid block with matching tag,
-     * this is a cache hit.
      */
     for (i = 0; i < cache->associativity; i++) {
         if (set[i].valid && set[i].tag == tag) {
             cache->hits++;
 
             /*
-             * Update LRU timestamp.
-             * This block is now the most recently used.
+             * Update recency timestamp.
+             *
+             * This is used by LRU and MRU replacement.
+             * FIFO ignores this field and uses inserted_at instead.
              */
             set[i].last_used = cache->timer;
 
-            /*
-             * If this is a store, mark the block dirty.
-             */
             if (is_store) {
                 set[i].dirty = 1;
             }
@@ -232,15 +240,12 @@ int cache_access(Cache *cache, uint32_t address, int is_store) {
     }
 
     /*
-     * Step 2: If we reach here, it is a miss.
+     * Step 2: Miss.
      */
     cache->misses++;
 
     /*
      * Step 3: Prefer inserting into an invalid/empty way.
-     *
-     * The PDF says:
-     * If any way in the set is invalid, insert there.
      */
     victim = -1;
 
@@ -252,45 +257,33 @@ int cache_access(Cache *cache, uint32_t address, int is_store) {
     }
 
     /*
-     * Step 4: If all ways are valid, choose the LRU victim.
-     *
-     * With timestamp LRU:
-     * smaller last_used = older = less recently used
+     * Step 4: If all ways are valid, choose victim based on policy.
      */
     if (victim == -1) {
-        victim = 0;
-        oldest_time = set[0].last_used;
+        victim = choose_victim(cache, set);
 
-        for (i = 1; i < cache->associativity; i++) {
-            if (set[i].last_used < oldest_time) {
-                oldest_time = set[i].last_used;
-                victim = i;
-            }
-        }
-
-        /*
-         * Dirty eviction tracking.
-         *
-         * The project says dirty evictions are instantaneous,
-         * so this counter is only for stats/debugging.
-         */
         if (set[victim].dirty) {
             cache->dirty_evictions++;
         }
     }
 
     /*
-     * Step 5: Insert the new block into the chosen victim way.
-     *
-     * On both load misses and store misses, the block is brought
-     * into cache.
-     *
-     * If the access was a store, the inserted block becomes dirty.
+     * Step 5: Insert the new block into the chosen way.
      */
     set[victim].tag = tag;
     set[victim].valid = 1;
     set[victim].dirty = is_store ? 1 : 0;
-    set[victim].last_used = cache->timer;
+
+    /*
+     * inserted_at is used for FIFO replacement.
+     * It does not change on hits.
+     */
+    set[victim].inserted_at = cache->timer;
+
+    /*
+     * This preserves original behavior when insertion policy is MRU.
+     */
+    apply_insertion_policy(cache, &set[victim]);
 
     return 0;
 }
@@ -361,12 +354,13 @@ void cache_print_set(Cache *cache, int set_index) {
 
     for (i = 0; i < cache->associativity; i++) {
         printf(
-            "Way %d | valid=%d tag=0x%08x dirty=%d last_used=%llu\n",
+            "Way %d | valid=%d tag=0x%08x dirty=%d last_used=%llu inserted_at=%llu\n",
             i,
             cache->sets[set_index][i].valid,
             cache->sets[set_index][i].tag,
             cache->sets[set_index][i].dirty,
-            cache->sets[set_index][i].last_used
+            cache->sets[set_index][i].last_used,
+            cache->sets[set_index][i].inserted_at
         );
     }
 }
