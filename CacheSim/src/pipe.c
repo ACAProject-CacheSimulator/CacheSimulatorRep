@@ -15,7 +15,7 @@ Cache icache;
 Cache dcache;
 
 
-
+#define OVERRIDE_POLICIES
 
 //#define DEBUG
 
@@ -43,8 +43,9 @@ void pipe_init(int inum_sets, int iassociativity,
     
     printf("PC init is = %08x \n",pipe.PC );
 
-
-    cache_set_policies(repl_policy,insert_policy);
+    #ifdef OVERRIDE_POLICIES
+        cache_set_policies(repl_policy,insert_policy);
+    #endif
     cache_init(&icache, inum_sets , iassociativity, iblock_size);
     cache_init(&dcache, dnum_sets , dassociativity, dblock_size);
 }

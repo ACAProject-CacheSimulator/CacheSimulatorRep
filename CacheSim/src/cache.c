@@ -3,6 +3,9 @@
 #include <stdint.h>
 #include "cache.h"
 
+
+
+
 /*
  * Global cache policies for Phase 2.
  *
@@ -10,6 +13,7 @@
  * - Replacement policy: LRU
  * - Insertion policy: MRU
  */
+
 CacheReplacementPolicy CACHE_REPLACEMENT_POLICY = CACHE_REPL_MRU;
 CacheInsertionPolicy CACHE_INSERTION_POLICY = CACHE_INSERT_LRU;
 
