@@ -17,6 +17,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("inputs", nargs="*", default=all_inputs)
     parser.add_argument("--cache", nargs=6, default=["64","4","32","256","8","32"])
+    parser.add_argument("--policies", nargs=2, default=["0","0"])
+
     parser = parser.parse_args()
 
     for i in parser.inputs:
@@ -25,7 +27,7 @@ def main():
             continue
 
         print(bold + "Testing: " + normal + i)
-        ref_out, sim_out = run(i,parser.cache)
+        ref_out, sim_out = run(i,parser.cache, parser.policies)
 
         print("  " + "Stats".ljust(14) + "BaselineSim".center(14) + "YourSim".center(14))
 
@@ -59,11 +61,11 @@ def main():
         print()
 
 
-def run(i, cache_args):
+def run(i, cache_args, cache_policy):
     global ref, sim
 
     refproc = subprocess.Popen([ref, i], executable=ref, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    simproc = subprocess.Popen([sim, i] + cache_args, executable=sim, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    simproc = subprocess.Popen([sim, i] + cache_args + cache_policy, executable=sim, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     cmds = b""
     cmdfile = os.path.splitext(i)[0] + ".cmd"
@@ -74,6 +76,8 @@ def run(i, cache_args):
     (r, r_err) = refproc.communicate(input=cmds)
     (s, s_err) = simproc.communicate(input=cmds)
 
+    print(extract_icache_stats(s.decode('utf-8')))
+    print(extract_dcache_stats(s.decode('utf-8')))
     return filter_stats(r.decode('utf-8')), filter_stats(s.decode('utf-8'))
 
 
@@ -87,7 +91,50 @@ def filter_stats(out):
 
     return "\n".join(out)
 
+def extract_icache_stats(output: str) -> str:
+    lines = output.splitlines()
+
+    capturing = False
+    result = []
+
+    for line in lines:
+        # start capturing
+        if "icache statistics" in line:
+            capturing = True
+            result.append(line)
+            continue
+
+        if capturing:
+            # stop when cache block ends
+            if line.strip() == "" or "MIPS-SIM>" in line or "Bye" in line:
+                break
+            result.append(line)
+
+    return "\n".join(result)
+
+def extract_dcache_stats(output: str) -> str:
+    lines = output.splitlines()
+
+    capturing = False
+    result = []
+
+    for line in lines:
+        # start capturing
+        if "dcache statistics" in line:
+            capturing = True
+            result.append(line)
+            continue
+
+        if capturing:
+            # stop when cache block ends
+            if line.strip() == "" or "MIPS-SIM>" in line or "Bye" in line:
+                break
+            result.append(line)
+
+    return "\n".join(result)
+
 
 if __name__ == "__main__":
     main()
+
 
