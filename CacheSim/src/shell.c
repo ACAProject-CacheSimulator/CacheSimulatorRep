@@ -16,6 +16,8 @@
 
 #include "shell.h"
 #include "pipe.h"
+#include "cache.h"
+
 
 /***************************************************************/
 /* Statistics.                                                 */
@@ -205,6 +207,10 @@ void rdump() {
     printf("RetiredInstr: %u\n", stat_inst_retire);
     printf("IPC: %0.3f\n", ((float) stat_inst_retire) / stat_cycles);
     printf("Flushes: %u\n", stat_squash);
+
+    cache_print_stats(&icache, "icache");
+    cache_print_stats(&dcache, "dcache");
+
 }
 
 /***************************************************************/ 
@@ -359,22 +365,26 @@ void load_program(char *program_filename) {
 /*             and set up initial state of the machine.     */
 /*                                                          */
 /************************************************************/
-void initialize(char *program_filename, int num_prog_files,int ic_size,
+void initialize(char *program_filename, int num_prog_files,int ic_sets,
         int ic_assoc,
         int ic_block,
-        int dc_size,
+        int dc_sets,
         int dc_assoc,
-        int dc_block) { 
+        int dc_block,
+        int repl_policy,
+        int insert_policy) { 
 
   int i;
 
   init_memory();
-  pipe_init(ic_size,
+  pipe_init(ic_sets,
         ic_assoc,
         ic_block,
-        dc_size,
+        dc_sets,
         dc_assoc,
-        dc_block);
+        dc_block,
+        repl_policy,
+        insert_policy);
   for (i = 0; i < num_prog_files; i++) {
     load_program(program_filename);
 }
@@ -396,28 +406,33 @@ int main(int argc, char *argv[]) {
     /* Error Checking */
     if (argc < 2) {
         printf("Usage:\n");
-        printf("%s <program_file> [ic_size ic_assoc ic_block dc_size dc_assoc dc_block]\n", argv[0]);
+        printf("%s <program_file> [ic_sets ic_assoc ic_block dc_sets dc_assoc dc_block]\n", argv[0]);
         exit(1);
     }
 
     /* Default values */
-    int ic_size  = DEFAULT_ICACHE_SIZE;
+    int ic_sets  = DEFAULT_ICACHE_SETS;
     int ic_assoc = DEFAULT_ICACHE_ASSOC;
     int ic_block = DEFAULT_ICACHE_BLOCK;
 
-    int dc_size  = DEFAULT_DCACHE_SIZE;
+    int dc_sets  = DEFAULT_DCACHE_SETS;
     int dc_assoc = DEFAULT_DCACHE_ASSOC;
     int dc_block = DEFAULT_DCACHE_BLOCK;
+    int repl_policy = DEFAULT_REPL_POLICY;
+    int insert_policy = DEFAULT_INSERT_POLICY;
 
     /* Override defaults if user provided arguments */
-    if (argc >= 8) {
-        ic_size  = atoi(argv[2]);
+    if (argc >= 10) {
+        ic_sets  = atoi(argv[2]);
         ic_assoc = atoi(argv[3]);
         ic_block = atoi(argv[4]);
 
-        dc_size  = atoi(argv[5]);
+        dc_sets  = atoi(argv[5]);
         dc_assoc = atoi(argv[6]);
         dc_block = atoi(argv[7]);
+
+        repl_policy = atoi(argv[8]);
+        insert_policy = atoi(argv[9]);
     }
 
     printf("MIPS Simulator\n\n");
@@ -425,12 +440,14 @@ int main(int argc, char *argv[]) {
     initialize(
         argv[1],
         argc - 1,
-        ic_size,
+        ic_sets,
         ic_assoc,
         ic_block,
-        dc_size,
+        dc_sets,
         dc_assoc,
-        dc_block
+        dc_block,
+        repl_policy,
+        insert_policy
     );
 
     while (1)

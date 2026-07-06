@@ -34,7 +34,7 @@ void print_op(Pipe_Op *op)
 Pipe_State pipe;
 
 void pipe_init(int inum_sets, int iassociativity,
-     int iblock_size, int dnum_sets, int dassociativity, int dblock_size)
+     int iblock_size, int dnum_sets, int dassociativity, int dblock_size, int repl_policy, int insert_policy)
 {
 
 
@@ -43,6 +43,8 @@ void pipe_init(int inum_sets, int iassociativity,
     
     printf("PC init is = %08x \n",pipe.PC );
 
+
+    cache_set_policies(repl_policy,insert_policy);
     cache_init(&icache, inum_sets , iassociativity, iblock_size);
     cache_init(&dcache, dnum_sets , dassociativity, dblock_size);
 }

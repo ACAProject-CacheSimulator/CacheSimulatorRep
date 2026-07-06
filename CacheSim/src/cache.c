@@ -10,17 +10,41 @@
  * - Replacement policy: LRU
  * - Insertion policy: MRU
  */
-CacheReplacementPolicy CACHE_REPLACEMENT_POLICY = CACHE_REPL_LRU;
-CacheInsertionPolicy CACHE_INSERTION_POLICY = CACHE_INSERT_MRU;
+CacheReplacementPolicy CACHE_REPLACEMENT_POLICY = CACHE_REPL_MRU;
+CacheInsertionPolicy CACHE_INSERTION_POLICY = CACHE_INSERT_LRU;
 
 /*
  * Optional function to change policies from another file.
  * You can also simply change the global variables above.
  */
-void cache_set_policies(CacheReplacementPolicy repl_policy,
-                        CacheInsertionPolicy insert_policy) {
-    CACHE_REPLACEMENT_POLICY = repl_policy;
-    CACHE_INSERTION_POLICY = insert_policy;
+void cache_set_policies(int repl_policy,
+                        int insert_policy) {
+
+    static const CacheReplacementPolicy repl_map[] = {
+        CACHE_REPL_LRU,
+        CACHE_REPL_MRU,
+        CACHE_REPL_FIFO,
+        CACHE_REPL_RANDOM
+    };
+
+    static const CacheInsertionPolicy insert_map[] = {
+        CACHE_INSERT_MRU,
+        CACHE_INSERT_LRU
+    };
+
+    int repl_count = (int)(sizeof(repl_map) / sizeof(repl_map[0]));
+    int insert_count = (int)(sizeof(insert_map) / sizeof(insert_map[0]));
+
+    // clamp replacement policy
+    if (repl_policy < 0 || repl_policy >= repl_count)
+        repl_policy = 0;
+
+    // clamp insertion policy
+    if (insert_policy < 0 || insert_policy >= insert_count)
+        insert_policy = 0;
+
+    CACHE_REPLACEMENT_POLICY = repl_map[repl_policy];
+    CACHE_INSERTION_POLICY   = insert_map[insert_policy];
 }
 
 /*

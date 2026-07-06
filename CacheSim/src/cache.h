@@ -70,7 +70,7 @@ void cache_print_stats(Cache *cache, const char *name);
 
 void cache_print_set(Cache *cache, int set_index);
 
-void cache_set_policies(CacheReplacementPolicy repl_policy,
-                        CacheInsertionPolicy insert_policy);
+void cache_set_policies(int repl_policy,
+                        int insert_policy);
 
 #endif
