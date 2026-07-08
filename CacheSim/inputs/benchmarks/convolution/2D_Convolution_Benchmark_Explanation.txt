@@ -1,0 +1,109 @@
+2D Convolution Benchmark Explanation
+
+Purpose
+
+This benchmark simulates a simple 3×3 convolution, one of the most
+common operations used in image processing and Convolutional Neural
+Networks (CNNs). The objective is not to produce meaningful image
+values, but to generate a realistic memory access pattern for evaluating
+cache performance.
+
+Unlike the previous synthetic benchmarks (streaming, conflict, random,
+etc.), this benchmark resembles a real application.
+
+Overall Idea
+
+A 3×3 convolution places a small 3×3 window over an image. For each
+output pixel, the program reads the nine neighbouring input values,
+combines them, stores one output value, and then moves the window to the
+next position.
+
+Since neighbouring pixels are accessed repeatedly, cache behavior has a
+strong impact on performance.
+
+Benchmark Versions
+
+Row-major version
+
+The program processes one row at a time.
+
+Pseudo-code:
+
+for each row: for each column: compute convolution
+
+This accesses consecutive memory addresses and therefore has good
+spatial locality. It is expected to generate fewer cache misses and
+achieve a higher IPC.
+
+Column-major version
+
+The program processes one column at a time.
+
+Pseudo-code:
+
+for each column: for each row: compute convolution
+
+This repeatedly jumps between rows in memory, reducing spatial locality.
+It is expected to produce more cache misses and a lower IPC.
+
+Step-by-step execution
+
+Step 1 Reserve memory for the input image and the output image.
+
+Step 2 Initialize registers that store the base addresses and loop
+counters.
+
+Step 3 Start the outer loop.
+
+Step 4 Start the inner loop.
+
+Step 5 Compute the memory address of the current pixel.
+
+Step 6 Load the nine neighbouring values using LW instructions.
+
+These load instructions generate the cache accesses measured during the
+experiments.
+
+Step 7 Add the loaded values together.
+
+The arithmetic itself is not important; the important part is the memory
+access pattern.
+
+Step 8 Store the result using an SW instruction.
+
+This also exercises the write path of the data cache.
+
+Step 9 Move to the next pixel.
+
+The row-major version advances across columns first.
+
+The column-major version advances across rows first.
+
+This is the only difference between the two programs, but it produces a
+very different cache behavior.
+
+Step 10 Repeat until every output pixel has been processed.
+
+Why this benchmark is useful
+
+This benchmark allows us to evaluate cache size, block size, and
+associativity using a realistic workload.
+
+Because both versions perform the same computation but traverse memory
+differently, any difference in IPC is mainly caused by cache performance
+rather than computation.
+
+
+----------------------------------------------------------------------------
+
+To evaluate a more realistic application, we implemented the same 2D convolution algorithm in two different versions: 
+row-major and column-major. Both programs perform exactly the same computation and produce the same output, but they access
+ memory in a different order. In the row-major version, the image is processed one row at a time, accessing consecutive memory
+  locations. This improves spatial locality because several neighboring values are loaded together into the cache. In the 
+  column-major version, the image is processed one column at a time, causing the program to jump between memory locations that 
+  are farther apart. As a result, the cache cannot reuse data as efficiently, leading to more cache misses.
+
+The purpose of separating the two implementations is to isolate the effect of the memory access pattern. Since the computation 
+itself remains identical, any differences in IPC or cache performance can be attributed to the way memory is accessed rather than 
+to changes in the algorithm. This allows us to study how cache parameters such as cache size, block size, and associativity influence
+ the performance of a realistic workload, which is exactly the type of analysis required for the second phase of the project.

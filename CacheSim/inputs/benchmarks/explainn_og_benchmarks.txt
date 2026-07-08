@@ -1,0 +1,310 @@
+CACHE BENCHMARK FILES EXPLANATION
+Synthetic Benchmarks for Phase 2
+
+This document explains the benchmark files created for the cache performance evaluation. These benchmarks are not meant to 
+represent full real applications. Instead, each one was designed to isolate and test one specific cache behavior, such as spatial 
+locality, temporal locality, conflict misses, poor locality, or store/dirty-block behavior.
+
+For each benchmark, there is usually a .s file and a .x file.
+
+The .s file is the human-readable MIPS assembly version. It shows the instructions, labels, loops, and comments, so it is easier
+ to understand what the benchmark is doing.
+
+The .x file is the machine-code version of the same program. This is the file that the simulator actually runs. It contains one 
+hexadecimal machine instruction per line.
+
+The simple versions were created first to verify that the access pattern worked correctly. The complex versions repeat the same 
+idea with more iterations or more memory accesses, so the cache effects become more visible in the IPC results.
+
+
+1. STREAMING ARRAY BENCHMARK
+
+Files:
+- streaming_array.s
+- streaming_array.x
+- streaming_array_complex.s
+- streaming_array_complex.x
+
+Aim of the benchmark:
+
+The goal of the streaming benchmark is to test spatial locality. Spatial locality means that when a program accesses one memory 
+location, it is likely to access nearby memory locations soon after. This is exactly what happens when an array is read from beginning 
+to end.
+
+What the code does:
+
+The program starts by setting a loop counter. This counter decides how many memory words will be accessed.
+
+Then it loads a base memory address, usually 0x10000000, into a register. This address represents the beginning of the array.
+
+Inside the loop, the program loads one word from the current memory address. After the load, it uses the value by adding it 
+to an accumulator register. This makes sure the load instruction is meaningful and not just an unused operation.
+
+After that, the program increases the memory address by 4 bytes. Since a MIPS word is 4 bytes, this moves the pointer to the
+ next word in the array.
+
+Then the loop counter is decreased. If the counter is not zero, the program branches back and repeats the process.
+
+At the end, the program exits using syscall.
+
+Why this tests the cache:
+
+Because the memory addresses are consecutive, the cache should benefit from larger block sizes. For example, if the block size 
+is 32 bytes, one cache block contains 8 words. That means one miss can bring several future words into the cache, and the following 
+accesses can become hits.
+
+Expected behavior:
+
+Block size should have a strong effect. Larger blocks should usually improve IPC. Cache size and associativity should not matter
+ as much because the access pattern is mostly one-directional streaming and does not reuse old blocks very often.
+
+
+2. REPEATED SMALL WORKING SET BENCHMARK
+
+Files:
+- repeated_small_working_set.s
+- repeated_small_working_set.x
+- repeated_small_working_set_complex.s
+- repeated_small_working_set_complex.x
+
+Aim of the benchmark:
+
+The goal of this benchmark is to test temporal locality. Temporal locality means that if a program accesses a memory location now,
+ it may access the same location again soon.
+
+What the code does:
+
+The program starts by setting a loop counter.
+
+Then it loads a base memory address into a register.
+
+Inside the loop, it repeatedly loads values from a small group of nearby addresses, such as base + 0, base + 4, base + 8, and base + 12.
+
+These addresses are very close to each other, so they all fit inside the same cache block when the block size is large enough.
+
+After loading the values, the program decreases the loop counter and repeats the same accesses many times.
+
+At the end, it exits using syscall.
+
+Why this tests the cache:
+
+The benchmark checks whether the cache can keep recently used data. After the first miss brings the block into the cache, later accesses 
+to the same locations should mostly be hits.
+
+Expected behavior:
+
+The IPC should be high and stable because the working set is very small. However, this is also why the benchmark does not show much 
+variation when cache size, block size, or associativity changes. Even small caches can hold the data. This is why the professor 
+suggested improving this benchmark to make the effect of cache parameters more visible.
+
+
+3. REPEATED LARGE WORKING SET BENCHMARK
+
+Files:
+- repeated_large_working_set.s
+- repeated_large_working_set.x
+
+Aim of the benchmark:
+
+This benchmark was created to improve the repeated working set experiment. The old repeated working set benchmark was too small, 
+so almost every cache configuration performed the same. This new version keeps the idea of reuse, but uses a larger working set
+ so cache size should matter more.
+
+What the code does:
+
+The program sets an outer loop counter. This counter represents how many times the same array will be scanned.
+
+At the beginning of each outer loop iteration, the program resets the base address to 0x10000000.
+
+Then it starts an inner loop that scans 2048 words. Since each word is 4 bytes, the total working set is 2048 × 4 = 8192 bytes, or 8 KB.
+
+Inside the inner loop, the program loads one word from memory, adds it to an accumulator, advances the address by 4 bytes,
+ decreases the inner counter, and repeats.
+
+After finishing one full scan of the 8 KB working set, the outer counter is decreased. If it is not zero, the program scans the 
+same 8 KB region again.
+
+At the end, it exits using syscall.
+
+Why this tests the cache:
+
+This benchmark still tests temporal locality, but with a larger working set. Small caches, such as 1 KB, 2 KB, or 4 KB, should 
+not be able to hold the full 8 KB region. Larger caches, such as 8 KB, 16 KB, or more, should keep more of the working set and 
+produce more hits after the first pass.
+
+Expected behavior:
+
+Unlike the old repeated small working set benchmark, this one should show a clearer cache-size effect. IPC should be lower for
+ very small caches and higher once the cache is large enough to keep most of the repeated working set.
+
+
+4. CONFLICT ACCESS BENCHMARK
+
+Files:
+- conflict_access.s
+- conflict_access.x
+- conflict_access_complex.s
+- conflict_access_complex.x
+
+Aim of the benchmark:
+
+The goal of this benchmark is to test conflict misses and associativity. Conflict misses happen when different memory blocks 
+map to the same cache set and keep replacing each other.
+
+What the code does:
+
+The program sets a loop counter.
+
+Then it accesses several memory addresses that are separated by a fixed distance. The addresses were chosen so that they map
+ to the same cache set under the tested cache configurations.
+
+For example, the program may access addresses such as:
+
+0x10000000
+0x10002000
+0x10004000
+0x10006000
+
+and so on.
+
+Each access loads a word from one of these addresses.
+
+After the sequence of conflicting accesses is completed, the loop counter is decreased and the same pattern is repeated.
+
+At the end, the program exits using syscall.
+
+Why this tests the cache:
+
+If several blocks map to the same set, the cache can only keep as many blocks as the associativity allows. For example, if the 
+cache is 4-way associative, only 4 blocks can stay in the same set at the same time. If the benchmark accesses more than 4 blocks 
+that map to that set, they will keep evicting each other.
+
+Expected behavior:
+
+Associativity should be the most important parameter. Low associativity should produce many misses and low IPC. Higher associativity, 
+especially when it is large enough to hold all competing blocks, should reduce conflict misses and strongly improve IPC.
+
+This is why this benchmark is one of the clearest experiments for showing the effect of associativity.
+
+
+5. RANDOM ACCESS BENCHMARK
+
+Files:
+- random_access.s
+- random_access.x
+- random_access_complex.s
+- random_access_complex.x
+
+Aim of the benchmark:
+
+The goal of the random access benchmark is to test poor spatial locality. Poor spatial locality means that the program does not access 
+nearby memory locations in a predictable order.
+
+What the code does:
+
+The program sets a loop counter and a base memory address.
+
+Inside the loop, it loads values from many different offsets from the base address. These offsets are not consecutive. Instead, 
+they jump around memory.
+
+For example, instead of reading:
+
+base + 0
+base + 4
+base + 8
+base + 12
+
+the program reads scattered locations such as:
+
+base + 12
+base + 200
+base + 28
+base + 364
+base + 520
+
+and so on.
+
+After completing the sequence of scattered loads, the loop counter is decreased and the same random-like pattern is repeated.
+
+At the end, the program exits using syscall.
+
+Why this tests the cache:
+
+Because the accesses are scattered, the cache cannot rely as much on spatial locality. A larger block may bring extra neighboring 
+data, but that extra data may not be used soon. This makes the benchmark useful for studying capacity effects and poor locality.
+
+Expected behavior:
+
+Cache size should matter more than associativity. If the cache is large enough to keep the scattered working set, IPC should improve. 
+Larger block sizes may help less than they do in the streaming benchmark because nearby data is not always reused.
+
+
+6. STORE HEAVY BENCHMARK
+
+Files:
+- store_heavy.s
+- store_heavy.x
+- store_heavy_complex.s
+- store_heavy_complex.x
+
+Aim of the benchmark:
+
+The goal of this benchmark is to test store behavior, dirty blocks, and dirty evictions. The previous benchmarks mainly used loads,
+ but stores are important because they mark cache blocks as dirty.
+
+What the code does:
+
+The program sets a loop counter.
+
+Then it loads a base address into a register.
+
+It also sets a value that will be stored in memory.
+
+Inside the loop, the program stores the value at the current memory address using a store word instruction.
+
+Then the program changes the value slightly, advances the memory address by 4 bytes, decreases the loop counter, and repeats.
+
+At the end, it exits using syscall.
+
+Why this tests the cache:
+
+Every store accesses the data cache. If the store hits, the block is marked dirty. If the store misses, the block is inserted into 
+the cache and marked dirty. If a dirty block is later evicted, the dirty eviction counter increases.
+
+Expected behavior:
+
+Because the stores are sequential, this benchmark behaves similarly to the streaming benchmark. Larger block sizes should improve 
+IPC due to spatial locality. Associativity should not have a strong effect. The important difference is that this benchmark also
+ checks that the dirty-bit logic is working.
+
+
+7. SUMMARY OF WHAT EACH BENCHMARK TESTS
+
+Streaming Array:
+Tests spatial locality. The main parameter should be block size.
+
+Repeated Small Working Set:
+Tests temporal locality with a very small working set. It confirms reuse, but does not show much parameter sensitivity.
+
+Repeated Large Working Set:
+Tests temporal locality with a larger working set. It should show a clearer cache-size effect.
+
+Conflict Access:
+Tests conflict misses. The main parameter should be associativity.
+
+Random Access:
+Tests poor locality and scattered access. Cache size should be important.
+
+Store Heavy:
+Tests stores, dirty blocks, and dirty evictions. It also shows spatial locality because stores are sequential.
+
+
+8. WHY WE USE BOTH SIMPLE AND COMPLEX VERSIONS
+
+The simple versions are useful for controlled testing. They are easier to understand and help verify that the benchmark logic is correct.
+
+The complex versions use more iterations and more memory accesses. This makes the results more useful for performance evaluation 
+because cache behavior becomes more visible and the effect of start-up noise is reduced.
+
+For the final report, the complex versions are usually more meaningful, while the simple versions are useful to explain and validate
+the benchmark design.
