@@ -1,0 +1,91 @@
+2D CONVOLUTION BENCHMARK (128 x 128)
+
+WHAT ARE THESE FILES?
+
+There are two benchmark files:
+
+• conv2d_row_major_128
+• conv2d_column_major_128
+
+Both programs perform the same simplified 3×3 convolution. The only difference is the order in which they read the image from memory.
+
+The purpose of these benchmarks is to study how the memory access pattern affects cache performance.
+
+------------------------------------------------------------
+
+IMAGE SIZE
+
+Input image:
+128 × 128 integers = 64 KB
+
+Output image:
+126 × 126 integers ≈ 62 KB
+
+Total data accessed:
+About 126 KB
+
+Compared to the previous 32 × 32 benchmark, this larger image makes cache size much more important and should produce more noticeable
+ IPC changes.
+
+------------------------------------------------------------
+
+ROW-MAJOR VERSION
+
+The image is processed one row at a time.
+
+The accesses look like:
+
+Pixel 1 → Pixel 2 → Pixel 3 → Pixel 4 ...
+
+Since consecutive pixels are stored next to each other in memory, the cache can reuse many of the values that it already loaded.
+
+Expected behavior:
+• Higher IPC
+• Fewer cache misses
+• Block size has a stronger effect
+
+------------------------------------------------------------
+
+COLUMN-MAJOR VERSION
+
+The image is processed one column at a time.
+
+The accesses look like:
+
+Pixel (0,0)
+Pixel (1,0)
+Pixel (2,0)
+...
+
+Because the image is stored row by row in memory, each access jumps farther in memory. This reduces spatial locality and usually
+ causes more cache misses.
+
+Expected behavior:
+• Lower IPC than the row-major version
+• Cache size becomes the most important parameter
+• Larger caches should noticeably improve performance
+
+------------------------------------------------------------
+
+HOW THE CONVOLUTION WORKS
+
+For each output pixel, the program:
+
+1. Reads the 9 neighboring pixels.
+2. Adds the 9 values together.
+3. Stores the result in the output image.
+4. Repeats the process until the whole image is completed.
+
+The convolution kernel uses all ones because the objective is to evaluate cache behavior, not the mathematical correctness of the
+ convolution.
+
+------------------------------------------------------------
+
+WHY THERE IS NO INPUT IMAGE
+
+The benchmark does not create a real image with values.
+
+This is not a problem for the cache simulator because the cache only tracks memory addresses. It does not use or check the actual 
+values stored in memory.
+
+As long as the program accesses memory in the same way as a real convolution, the cache behavior is representative.
