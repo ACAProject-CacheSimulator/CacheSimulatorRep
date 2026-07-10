@@ -119,7 +119,6 @@ The cache capacity is computed as
 Cache Capacity = Number of Sets × Associativity × Block Size
 ```
 
-Only valid cache organizations should be used (the resulting number of sets must be a positive power of two).
 
 ---
 
