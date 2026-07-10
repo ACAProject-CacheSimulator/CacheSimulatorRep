@@ -210,6 +210,27 @@ def run_benchmark(
 
 This function executes a benchmark using the selected cache configuration and replacement/insertion policies.
 
+The IPC can be extracted from the result using this helper function:
+```python
+def extract_ipc(output):
+    output = output.replace("\r", "")
+
+    for line in output.split("\n"):
+        line = line.strip()
+        if "IPC:" in line:
+            parts = line.split()
+            return float(parts[-1])  
+```
+
+Note that before using this function the output of run_benchmark has to be converted using : 
+```python
+string_output = output.stdout
+
+#then this can be perfomed:
+
+ipc = extract_ipc(string_output)
+```
+
 ---
 
 # Cache Parameter Ranges
