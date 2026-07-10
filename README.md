@@ -297,7 +297,6 @@ The benchmark suite includes:
 streaming_array_complex.x
 conflict_access_complex.x
 random_access_complex.x
-store_heavy_complex.x
 repeated_large_working_set.x
 conv2d_row_major_128.x
 conv2d_column_major_128.x
