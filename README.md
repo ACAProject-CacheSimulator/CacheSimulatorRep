@@ -6,7 +6,7 @@ Members:
 
 # Building the Project
 
-Verify the presence of basesim.exe
+Verify the presence of basesim \\
 
 Compile the modified simulator:
 
