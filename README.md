@@ -6,11 +6,7 @@ Members:
 
 # Building the Project
 
-Compile the baseline simulator:
-
-```bash
-make basesim
-```
+Verify the presence of basesim.exe
 
 Compile the modified simulator:
 
