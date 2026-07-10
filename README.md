@@ -283,13 +283,3 @@ conv2d_column_major_128.x
 ```
 
 The corresponding `.s` files contain the MIPS assembly source code used to generate each executable `.x` benchmark.
-
----
-
-# Notes
-
-- The original `Makefile` and `run.py` should be used for grading.
-- The modified simulator must produce the same architectural results as `basesim`.
-- Different execution cycles and IPC values are expected due to the cache timing model.
-- When running on Windows/MSYS2, use `./sim.exe` if executing the simulator directly.
-- Depending on the Python installation, `python3` may need to be used instead of `python`.  
