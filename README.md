@@ -6,11 +6,12 @@ Members:
 
 # Building the Project
 
-Verify the presence of basesim 
+Verify the presence of the base simulator without the cache:
 
 ```text
-
+basesim
 ```
+(or `basesim.exe` on Windows).
 
 Compile the modified simulator:
 
